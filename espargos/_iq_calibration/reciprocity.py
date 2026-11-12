@@ -97,18 +97,18 @@ def calibrate(pool, *, rx_gain=None, cable_lengths=None, cable_velocity_factors=
         def prepare(bi):
             b = boards[bi]
             _rpc(b, "set_iq_monitor", {"enabled": False})
-            _rpc(
-                b,
-                "set_iq_tx",
-                {
-                    "muted": True,
-                    "modes": rx_modes[bi],
-                    "calibration": initial_corrections[bi],
-                    "steering": steering[bi],
-                    "transmitters": [{"antid": a, "rf_gain": {"a": 0, "b": 0}, "bandwidth_mhz": 40} for j, a in targets if j == bi]
-                    + [{"antid": a, "amplitude": 0} for a, mode in enumerate(saved_rx[bi]["modes"]) if mode == "iq_tx" and a not in scope.ids[bi]],
-                },
-            )
+            settings = {
+                "muted": True,
+                "modes": rx_modes[bi],
+                "calibration": initial_corrections[bi],
+                "steering": steering[bi],
+            }
+            transmitters = [{"antid": a, "rf_gain": {"a": 0, "b": 0}, "bandwidth_mhz": 40} for j, a in targets if j == bi]
+            transmitters += [{"antid": a, "amplitude": 0} for a, mode in enumerate(saved_rx[bi]["modes"]) if mode == "iq_tx" and a not in scope.ids[bi]]
+            # The firmware rejects empty transmitter lists on RX-only boards.
+            if transmitters:
+                settings["transmitters"] = transmitters
+            _rpc(b, "set_iq_tx", settings)
 
         _map(prepare, scope.active)
         if rx_gain is None:
